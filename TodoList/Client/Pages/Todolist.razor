@@ -1,0 +1,121 @@
+﻿@page "/"
+@inject ITodoListServices TodoListServices
+@inject NavigationManager NavigationManager
+
+<PageTitle>Todo list</PageTitle>
+
+
+
+<button type="button" class="btn btn-primary mb-4" data-bs-toggle="modal" data-bs-target="#exampleModal">
+  Add todo
+</button>
+
+<!-- Modal -->
+<div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+	<div class="modal-content">
+	  <div class="modal-header">
+		<h1 class="modal-title fs-5" id="exampleModalLabel">Add todo</h1>
+		<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+	  </div>
+		<EditForm Model="NewTodo"  OnSubmit="SubmitHandler" class="mb-4 d-inline-flex flex-column px-2">
+		<InputTextArea col="3" class="rounded p-2 mb-2"  placeholder="Somethink todo..." @bind-Value="Description"  />
+		<button type="submit" class="btn btn-primary" >Add todo</button>
+		</EditForm>
+	</div>
+  </div>
+</div>
+
+
+<h3>Todolist</h3>
+
+@if (todos.Count == 0) {
+	<h2>No todos!</h2>
+}else {
+		<table class="table">
+		<thead>
+			<tr>
+				<th class="col-3">Id</th>
+				<th>IsDone</th>
+				<th class="col-6">Description</th>
+				<th></th>
+				<th></th>
+			</tr>
+		</thead>
+		<tbody>
+
+			@foreach (var todo in todos) {
+					<tr>
+						<td class="col-3">@todo.Id</td>				
+						<td><input type="checkbox"  checked="@todo.IsDone"  @onchange="(() => OnCheckboxChange(todo))" /></td>
+						@if(todo.IsDone) {
+							<td class="col-6 text-break text-decoration-line-through">@todo.Description</td>
+						} else {
+							<td class="col-6 text-break ">@todo.Description</td>
+						}
+						<td><button type="button" class="btn btn-primary" @onclick="(() => EditTodo(todo.Id))">Edit</button></td>
+						<td><button type="button" class="btn btn-danger" @onclick="(() => DeleteTodo(todo.Id))">Delete</button></td>
+					</tr>
+			}
+		</tbody>
+	</table>
+
+}
+
+
+
+
+@code {
+	private List<Todo> todos { get; set; } = new List<Todo>();
+	private Todo NewTodo { get; set; } = new Todo();
+	private string Description { get; set; } = string.Empty;
+	private Todo ServerTodo { get; set; } = new Todo();
+		
+
+	void SubmitHandler() {
+		NewTodo.Description = Description;
+
+		if (NewTodo.Description.Length > 0) {
+			todos.Add(NewTodo);
+			CreateTodo();
+		}
+
+		Description = string.Empty;
+
+	}
+
+	async void CreateTodo() {
+		ServerTodo =  await TodoListServices.CreateTodo(NewTodo);
+		if(ServerTodo.Id  != Guid.Empty) {
+			ChangeId(ServerTodo.Id);
+		}
+	}
+
+	void ChangeId (Guid Id) {
+		todos.Find(t => t.Id == Guid.Empty).Id = Id;
+		StateHasChanged();
+	}
+
+	protected override async Task OnInitializedAsync() {
+		todos = await TodoListServices.GetTodos();
+	}
+
+	async void OnCheckboxChange(Todo todo) {
+		todo.IsDone = !todo.IsDone;
+		await TodoListServices.UpdateTodo(todo);
+	}
+
+	void EditTodo ( Guid Id) {
+		NavigationManager.NavigateTo($"todo/{Id}");
+	}
+
+	void DeleteTodo(Guid Id) {
+		TodoListServices.DeleteTodo(Id);
+		var todo = todos.FirstOrDefault(todo => todo.Id == Id);
+		if(todo != null)
+			todos.Remove(todo);
+	}
+
+	
+
+}
